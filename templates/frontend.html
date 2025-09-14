@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PlastiScan</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Poppins', sans-serif; background-color: #F8F9FA; }
+        .transition-all-300 { transition: all 0.3s ease-in-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fadeIn 0.6s ease-in-out forwards; }
+        /* Memastikan video kamera tidak terdistorsi */
+        #camera-feed {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+            transform: scaleX(-1); /* Cerminkan video agar seperti cermin */
+        }
+        #photo-snapshot {
+             transform: scaleX(-1); /* Cerminkan juga hasil foto */
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <header class="bg-white/80 backdrop-blur-md sticky top-0 z-50 border-b border-slate-200">
+        <nav class="container mx-auto px-6 py-4 flex items-center justify-between">
+            <a href="{{ url_for('frontend') }}" class="flex items-center space-x-2">
+                <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M12 6V3m0 18v-3"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12h10"></path></svg>
+                <span class="font-bold text-xl text-slate-700">PlastiScan</span>
+            </a>
+            <a href="#guide-section" class="font-semibold text-slate-600 hover:text-blue-600 transition-all-300">Panduan Plastik</a>
+        </nav>
+    </header>
+
+    <main class="container mx-auto px-6 py-8 md:py-16">
+        
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-lg relative overflow-hidden">
+            
+            <img src="https://www.svgrepo.com/show/452331/leaf.svg" class="w-48 h-48 absolute -top-12 -left-16 text-blue-500 opacity-5 transform -rotate-12 hidden lg:block" alt="Leaf"/>
+            <img src="https://www.svgrepo.com/show/452331/leaf.svg" class="w-40 h-40 absolute -top-8 -right-12 text-emerald-500 opacity-5 transform rotate-12 scale-x-[-1] hidden lg:block" alt="Leaf"/>
+
+            <div id="page-deteksi" class="page-section">
+                <div class="text-center mb-10 relative z-10">
+                    <h1 class="text-4xl md:text-5xl font-bold text-slate-800">Detektor Plastik</h1>
+                    <p class="text-slate-500 mt-4 max-w-2xl mx-auto">Unggah gambar atau gunakan kamera Anda untuk mengidentifikasi jenis plastik secara instan.</p>
+                </div>
+
+                <div id="app-area" class="relative z-10">
+                    
+                    <div id="initial-options">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <label for="image-upload" class="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-300 rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 hover:border-blue-500 transition-all-300">
+                                <svg class="w-12 h-12 text-blue-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                <span class="font-semibold text-lg text-slate-700">Unggah File</span>
+                                <span class="text-sm text-slate-500">Pilih dari galeri Anda</span>
+                            </label>
+
+                            <button id="start-camera-btn" type="button" class="flex flex-col items-center justify-center p-8 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 hover:border-emerald-500 transition-all-300">
+                                <svg class="w-12 h-12 text-emerald-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                                 <span class="font-semibold text-lg text-slate-700">Ambil Foto</span>
+                                <span class="text-sm text-slate-500">Gunakan kamera langsung</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <form id="upload-form" method="POST" enctype="multipart/form-data" class="hidden" onsubmit="showLoading()">
+                        <input id="image-upload" type="file" name="image" accept="image/*" class="hidden">
+                    </form>
+
+                    <div id="camera-area" class="hidden">
+                        <div class="relative w-full max-w-2xl mx-auto">
+                            <video id="camera-feed" class="w-full h-auto rounded-lg shadow-md" autoplay playsinline></video>
+                            <canvas id="photo-snapshot" class="hidden w-full h-auto rounded-lg"></canvas>
+                        </div>
+                        <div id="camera-controls" class="mt-4 flex justify-center items-center gap-4"></div>
+                        <p id="camera-error" class="text-red-500 text-center mt-4 hidden"></p>
+                    </div>
+
+                    <div id="loading" class="hidden animate-fade-in">
+                         <div class="flex items-center justify-center space-x-3 text-slate-600 font-semibold text-lg py-12">
+                             <svg class="animate-spin h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                             <span>Analyzing Image...</span>
+                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% if prediction %}
+                <script>
+                    document.addEventListener('DOMContentLoaded', () => {
+                         // Sembunyikan semua elemen UI lain jika hasil sudah ada
+                        const initialOpts = document.getElementById('initial-options');
+                        if(initialOpts) initialOpts.classList.add('hidden');
+                    });
+                </script>
+                <!-- Tailwind CDN needs these classes to keep bg colors -->
+<div class="hidden bg-green-200 bg-blue-200 bg-yellow-200 bg-red-200 bg-purple-200"></div>
+
+<!-- Result Card -->
+<div id="result-card" class="rounded-lg p-6 transition-all duration-300">
+  <div class="flex items-center space-x-4">
+    <div id="result-icon" class="text-4xl"></div>
+    <div>
+    <h2 class="text-2xl font-semibold text-slate-800">
+        Jenis Plastik
+      </h2>
+        <h2 id="result-prediction" class="text-5xl font-bold mb-2">{{ prediction }}</h2>
+        {% if confidence is not none %}
+        {% endif %}
+        
+        <p id="result-description" class="text-sm text-gray-700 mt-1"></p>
+    </div>
+  </div>
+                    <button onclick="window.location.href=window.location.href" class="w-full mt-6 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-lg font-semibold text-lg transition-all-300">
+                        Klasifikasikan Gambar Lain
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="guide-section" class="mt-16 md:mt-24 scroll-mt-24">
+            <div class="text-center mb-12">
+                <h2 class="text-3xl md:text-4xl font-bold text-slate-800">Panduan Kode Identifikasi Resin</h2>
+                <p class="mt-3 text-slate-500 max-w-2xl mx-auto">Pelajari tentang berbagai jenis plastik dan potensi daur ulangnya.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                
+                <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all-300">
+                    <div class="flex items-center mb-4">
+                        <div class="relative w-12 h-12 mr-4 flex-shrink-0">
+                            <svg class="w-full h-full text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5-5-5h3V8h4v5h3z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.9 10.9L15.8 4H8.2L3.1 10.9 8.2 17.8h7.6l5.1-6.9z"></path></svg>
+                            <span class="absolute inset-0 flex items-center justify-center font-bold text-lg text-blue-600">1</span>
+                        </div>
+                        <h3 class="font-bold text-2xl text-slate-800">PET</h3>
+                    </div>
+                    <p class="text-slate-600">Biasa digunakan untuk botol air mineral, jus, dan minuman ringan. Dapat didaur ulang menjadi serat untuk pakaian atau karpet.</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all-300">
+                    <div class="flex items-center mb-4">
+                         <div class="relative w-12 h-12 mr-4 flex-shrink-0">
+                            <svg class="w-full h-full text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5-5-5h3V8h4v5h3z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.9 10.9L15.8 4H8.2L3.1 10.9 8.2 17.8h7.6l5.1-6.9z"></path></svg>
+                            <span class="absolute inset-0 flex items-center justify-center font-bold text-lg text-green-600">2</span>
+                        </div>
+                        <h3 class="font-bold text-2xl text-slate-800">HDPE</h3>
+                    </div>
+                    <p class="text-slate-600">Digunakan untuk botol susu, botol deterjen, dan pipa. Dikenal kuat dan tahan terhadap bahan kimia. Dapat didaur ulang menjadi bangku taman atau pot tanaman.</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all-300">
+                    <div class="flex items-center mb-4">
+                         <div class="relative w-12 h-12 mr-4 flex-shrink-0">
+                            <svg class="w-full h-full text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5-5-5h3V8h4v5h3z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.9 10.9L15.8 4H8.2L3.1 10.9 8.2 17.8h7.6l5.1-6.9z"></path></svg>
+                            <span class="absolute inset-0 flex items-center justify-center font-bold text-lg text-amber-600">4</span>
+                        </div>
+                        <h3 class="font-bold text-2xl text-slate-800">LDPE</h3>
+                    </div>
+                    <p class="text-slate-600">Ditemukan pada kantong plastik, plastik pembungkus (wrap), dan botol yang bisa diremas. Dapat didaur ulang menjadi kantong sampah.</p>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all-300">
+                    <div class="flex items-center mb-4">
+                         <div class="relative w-12 h-12 mr-4 flex-shrink-0">
+                            <svg class="w-full h-full text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5-5-5h3V8h4v5h3z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.9 10.9L15.8 4H8.2L3.1 10.9 8.2 17.8h7.6l5.1-6.9z"></path></svg>
+                            <span class="absolute inset-0 flex items-center justify-center font-bold text-lg text-orange-600">5</span>
+                        </div>
+                        <h3 class="font-bold text-2xl text-slate-800">PP</h3>
+                    </div>
+                    <p class="text-slate-600">Digunakan untuk wadah makanan, tutup botol, dan komponen otomotif. Tahan panas. Dapat didaur ulang menjadi sikat atau baterai mobil.</p>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all-300">
+                    <div class="flex items-center mb-4">
+                         <div class="relative w-12 h-12 mr-4 flex-shrink-0">
+                            <svg class="w-full h-full text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5-5-5h3V8h4v5h3z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.9 10.9L15.8 4H8.2L3.1 10.9 8.2 17.8h7.6l5.1-6.9z"></path></svg>
+                            <span class="absolute inset-0 flex items-center justify-center font-bold text-lg text-purple-600">6</span>
+                        </div>
+                        <h3 class="font-bold text-2xl text-slate-800">PS</h3>
+                    </div>
+                    <p class="text-slate-600">Dikenal sebagai styrofoam, digunakan untuk cangkir kopi sekali pakai dan kemasan makanan. Sulit didaur ulang.</p>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all-300 md:col-span-2 lg:col-span-1">
+                    <div class="flex items-center mb-4">
+                         <div class="relative w-12 h-12 mr-4 flex-shrink-0">
+                            <svg class="w-full h-full text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5-5-5h3V8h4v5h3z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20.9 10.9L15.8 4H8.2L3.1 10.9 8.2 17.8h7.6l5.1-6.9z"></path></svg>
+                            <span class="absolute inset-0 flex items-center justify-center font-bold text-lg text-slate-600">7</span>
+                        </div>
+                        <h3 class="font-bold text-2xl text-slate-800">Lainnya</h3>
+                    </div>
+                    <p class="text-slate-600">Kategori untuk jenis plastik lain atau kombinasi beberapa jenis. Biasanya paling sulit untuk didaur ulang.</p>
+                </div>
+                <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col hover:shadow-xl hover:-translate-y-1 transition-all-300 md:col-span-2 lg:col-span-1">
+                    <div class="flex items-center mb-4">
+                        <div class="relative w-12 h-12 mr-4 flex-shrink-0">
+                        <svg class="w-full h-full text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15.41 8.59c-1.33 2.42-3.67 3.84-6.41 4.41M12 20c-2.42 0-4.68-.93-6.36-2.55C7.93 15.58 10.68 14 14 14c1.45 0 2.8.42 4 1.12"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.09 14.41c-2.07-.53-3.83-2.08-4.59-4.09"></path>
+            </svg>
+        </div>
+        <h3 class="font-bold text-2xl text-slate-800">Non Plastik</h3>
+    </div>
+    <p class="text-slate-600">Kategori untuk jenis material non plastik.</p>
+</div>
+            </div>
+        </div>
+    </main>
+    
+    <script>
+        const PLASTIC_DATA = {
+    "PET": {
+        color: "bg-green-200",
+        icon: "♻️",
+        description: "PET (Polyethylene Terephthalate): Biasa digunakan untuk botol minuman ringan dan air mineral."
+    },
+    "HDPE": {
+        color: "bg-blue-200",
+        icon: "🧴",
+        description: "HDPE (High-Density Polyethylene): Biasa ditemukan pada botol deterjen, botol susu, dan galon."
+    },
+    "LDPE": {
+        color: "bg-red-200",
+        icon: "🍬",
+        description: "LDPE (Low-Density Polyethylene): Umumnya digunakan untuk kantong plastik dan bungkus makanan."
+    },
+    "PP": {
+        color: "bg-purple-200",
+        icon: "🥡",
+        description: "PP (Polypropylene): Biasa digunakan untuk wadah makanan, tutup botol, dan sedotan."
+    },
+    "PS": {
+        color: "bg-gray-200",
+        icon: "🍽️",
+        description: "PS (Polystyrene): Dipakai untuk wadah makanan sekali pakai, gelas, dan peralatan makan."
+    },
+    "Lainnya": {
+        color: "bg-gray-300",
+        icon: "❓",
+        description: "Kategori untuk jenis plastik lain atau kombinasi beberapa jenis. Biasanya paling sulit untuk didaur ulang."
+    },
+    "Non Plastik": {
+        color: "bg-gray-400",
+        icon: "🚫",
+        description: "Bukan plastik. Daur ulangnya tergantung pada jenis material."
+    }
+};
+
+        // --- ELEMEN DOM ---
+        const initialOptions = document.getElementById('initial-options');
+        const cameraArea = document.getElementById('camera-area');
+        const videoFeed = document.getElementById('camera-feed');
+        const photoSnapshot = document.getElementById('photo-snapshot');
+        const cameraControls = document.getElementById('camera-controls');
+        const startCameraBtn = document.getElementById('start-camera-btn');
+        const fileInput = document.getElementById('image-upload');
+        const uploadForm = document.getElementById('upload-form');
+        const cameraError = document.getElementById('camera-error');
+        const loadingSpinner = document.getElementById('loading');
+        let stream = null;
+        
+        // --- FUNGSI UTAMA ---
+        function showLoading() {
+            if(initialOptions) initialOptions.classList.add('hidden');
+            if(cameraArea) cameraArea.classList.add('hidden');
+            if(loadingSpinner) loadingSpinner.classList.remove('hidden');
+        }
+
+        async function startCamera() {
+            try {
+                if ('mediaDevices' in navigator && 'getUserMedia' in navigator.mediaDevices) {
+                    const constraints = { video: { facingMode: 'environment' } }; // Prioritaskan kamera belakang
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    videoFeed.srcObject = stream;
+                    
+                    initialOptions.classList.add('hidden');
+                    cameraArea.classList.remove('hidden');
+                    photoSnapshot.classList.add('hidden');
+                    videoFeed.classList.remove('hidden');
+                    setCameraControls('capture');
+                } else {
+                    throw new Error('Fitur kamera tidak didukung di browser ini.');
+                }
+            } catch (err) {
+                cameraError.textContent = `Error: ${err.message}. Pastikan Anda memberikan izin akses kamera.`;
+                cameraError.classList.remove('hidden');
+                setTimeout(() => cameraError.classList.add('hidden'), 5000);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+            }
+            cameraArea.classList.add('hidden');
+            initialOptions.classList.remove('hidden');
+        }
+
+        function capturePhoto() {
+            const context = photoSnapshot.getContext('2d');
+            photoSnapshot.width = videoFeed.videoWidth;
+            photoSnapshot.height = videoFeed.videoHeight;
+            context.drawImage(videoFeed, 0, 0, videoFeed.videoWidth, videoFeed.videoHeight);
+            
+            videoFeed.classList.add('hidden');
+            photoSnapshot.classList.remove('hidden');
+            setCameraControls('confirm');
+        }
+
+        function submitCapturedPhoto() {
+            showLoading();
+            photoSnapshot.toBlob(function(blob) {
+                const imageFile = new File([blob], "camera_capture.jpg", { type: "image/jpeg" });
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(imageFile);
+                fileInput.files = dataTransfer.files;
+                
+                setTimeout(() => uploadForm.submit(), 100);
+            }, 'image/jpeg', 0.9);
+        }
+
+        function setCameraControls(state) {
+            cameraControls.innerHTML = ''; 
+            if (state === 'capture') {
+                const captureButton = document.createElement('button');
+                captureButton.innerHTML = `<svg class="w-16 h-16" fill="white" viewBox="0 0 24 24"><path d="M12,2A10,10,0,1,0,22,12,10,10,0,0,0,12,2Zm0,18a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z" /><path d="M12,7a5,5,0,1,0,5,5A5,5,0,0,0,12,7Z" /></svg>`;
+                captureButton.className = 'p-2 rounded-full bg-blue-600 hover:bg-blue-700 transition-all-300 ring-4 ring-white/50';
+                captureButton.onclick = capturePhoto;
+
+                const cancelButton = document.createElement('button');
+                cancelButton.textContent = 'Batal';
+                cancelButton.className = 'absolute left-0 text-white bg-black/50 px-3 py-1 rounded-lg';
+                cancelButton.onclick = stopCamera;
+
+                cameraControls.append(cancelButton, captureButton);
+            } else if (state === 'confirm') {
+                const submitButton = document.createElement('button');
+                submitButton.textContent = 'Gunakan Foto Ini';
+                submitButton.className = 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg transition-all-300';
+                submitButton.onclick = submitCapturedPhoto;
+                
+                const retakeButton = document.createElement('button');
+                retakeButton.textContent = 'Ambil Ulang';
+                retakeButton.className = 'bg-slate-500 hover:bg-slate-600 text-white font-bold py-3 px-6 rounded-lg transition-all-300';
+                retakeButton.onclick = () => {
+                    videoFeed.classList.remove('hidden');
+                    photoSnapshot.classList.add('hidden');
+                    setCameraControls('capture');
+                };
+                
+                cameraControls.append(retakeButton, submitButton);
+            }
+        }
+        
+        // --- EVENT LISTENERS ---
+        startCameraBtn.addEventListener('click', startCamera);
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                uploadForm.submit();
+            }
+        });
+
+        // --- DYNAMIC RESULT DISPLAY ---
+document.addEventListener('DOMContentLoaded', () => {
+    const predictionEl = document.getElementById('result-prediction');
+    const resultCard = document.getElementById('result-card');
+    const resultIcon = document.getElementById('result-icon');
+    const resultDescription = document.getElementById('result-description');
+
+    if (!predictionEl || !resultCard || !resultIcon || !resultDescription) return;
+
+    const predictionText = predictionEl.textContent.trim().split(':').pop().trim();
+    const data = PLASTIC_DATA[predictionText] || PLASTIC_DATA['Lainnya'];
+
+    // Bersihkan kelas bg-* lama dari Tailwind
+    resultCard.className = resultCard.className
+        .split(' ')
+        .filter(cls => !cls.startsWith('bg-'))
+        .join(' ')
+        .trim();
+
+    // Tambahkan warna baru
+    resultCard.classList.add(data.color);
+
+    // Tambahkan ikon & deskripsi
+    resultIcon.innerHTML = data.icon;
+    resultDescription.textContent = data.description;
+});
+    </script>
+    
+</body>
+</html>
